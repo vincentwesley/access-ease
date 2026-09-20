@@ -150,3 +150,38 @@ test('when replaceSync starts throwing, the already-adopted sheet is removed (no
   assert.equal(env.styleEls[0].textContent, 'a{color:green}');
   assert.doesNotMatch(env.appliedText(), /red/);
 });
+
+test('paused host: styling is removed instead of applied', () => {
+  const env = makeEnv();
+  globalThis.location = { hostname: 'www.Example.com' };
+  try {
+    applyCssInPage('body{color:red}');
+    assert.equal(env.doc.adoptedStyleSheets.length, 1);
+    applyCssInPage('body{color:red}', ['example.com']);
+    assert.equal(env.doc.adoptedStyleSheets.length, 0);
+    applyCssInPage('body{color:red}', ['other.com']);
+    assert.equal(env.doc.adoptedStyleSheets.length, 1);
+  } finally {
+    delete globalThis.location;
+  }
+});
+
+test('px leaf text is bucketed and scaled; leaf that already grows or is clipped is left alone', () => {
+  const env = makeEnv({ paras: [{ px: 14 }] });
+  const attrs = new Map();
+  const leaf = (id, px, extra = {}) => ({
+    id, px, childElementCount: 0, textContent: 'hi', className: '', ...extra,
+    setAttribute: (k, v) => attrs.set(id, v),
+    removeAttribute: () => attrs.delete(id),
+  });
+  const leaves = [leaf('a', 13), leaf('b', 13), leaf('c', 12, { clip: true }), leaf('d', 0, { rel: 1 })];
+  env.body.querySelectorAll = (sel) => (sel.includes('data-ae-s') ? [] : sel.startsWith('div') ? leaves : env.paras);
+  const base = globalThis.getComputedStyle;
+  globalThis.getComputedStyle = (el) => (el.id ? { fontSize: `${el.rel ? el.rel * env.size(env.html) : el.px}px`, overflowX: el.clip ? 'hidden' : 'visible' } : base(el));
+  applyCssInPage(scaleCss(150));
+  assert.equal(attrs.get('a'), '13');
+  assert.equal(attrs.get('b'), '13');
+  assert.equal(attrs.has('c'), false);
+  assert.equal(attrs.has('d'), false); // rem-sized: grows with the root
+  assert.match(env.appliedText(), /\[data-ae-s="13"\]\{font-size:19\.5px !important\}/);
+});

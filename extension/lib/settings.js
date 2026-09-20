@@ -16,7 +16,35 @@ export const DEFAULTS = Object.freeze({
   dyslexiaFont: false,
   reduceMotion: false,
   allSites: false,
+  pausedHosts: Object.freeze([]),
 });
+
+export const MAX_PAUSED_HOSTS = 200;
+
+/** Canonical key for a hostname: lowercase, no trailing dot, no leading "www.". '' if unusable. */
+export function hostKey(host) {
+  if (typeof host !== 'string') return '';
+  const h = host.trim().toLowerCase().replace(/\.$/, '').replace(/^www\./, '');
+  return /^[a-z0-9.:[\]_-]{1,253}$/.test(h) ? h : '';
+}
+
+/** True when AccessEase is paused for this hostname. */
+export function isPaused(settings, host) {
+  const k = hostKey(host);
+  return !!k && Array.isArray(settings && settings.pausedHosts) && settings.pausedHosts.includes(k);
+}
+
+/** Returns a new pausedHosts list with `host` paused or resumed. */
+export function withPaused(list, host, paused) {
+  const k = hostKey(host);
+  const rest = (Array.isArray(list) ? list : []).filter((h) => h !== k);
+  return k && paused ? [...rest, k].slice(-MAX_PAUSED_HOSTS) : rest;
+}
+
+function normalizeHosts(list) {
+  if (!Array.isArray(list)) return [];
+  return [...new Set(list.map(hostKey).filter(Boolean))].slice(-MAX_PAUSED_HOSTS);
+}
 
 const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
 
@@ -29,7 +57,7 @@ function clampStep(value, { min, max, step }, fallback, decimals) {
 }
 
 export function defaultSettings() {
-  return { ...DEFAULTS };
+  return { ...DEFAULTS, pausedHosts: [] };
 }
 
 /** Coerce any value into a complete, valid settings object at the current version.
@@ -43,6 +71,7 @@ export function normalize(raw) {
     dyslexiaFont: src.dyslexiaFont === true,
     reduceMotion: src.reduceMotion === true,
     allSites: src.allSites === true,
+    pausedHosts: normalizeHosts(src.pausedHosts),
   };
 }
 

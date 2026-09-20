@@ -18,7 +18,7 @@
       // If "all sites" was turned off, leave the page alone; the panel manages
       // the active tab itself.
       if (!settings.allSites) return;
-      applyCssInPage(buildCss(settings, fontUrls(url)));
+      applyCssInPage(buildCss(settings, fontUrls(url)), settings.pausedHosts);
     };
 
     render(await loadSettings());

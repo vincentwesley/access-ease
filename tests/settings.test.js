@@ -5,7 +5,7 @@ import { DEFAULTS, defaultSettings, normalize, migrate, SCHEMA_VERSION, setAllSi
 test('defaults match the spec schema', () => {
   assert.deepEqual(defaultSettings(), {
     v: 1, textScale: 100, contrast: 'off', dyslexiaFont: false, reduceMotion: false,
-    allSites: false,
+    allSites: false, pausedHosts: [],
   });
   assert.ok(Object.isFrozen(DEFAULTS));
 });
@@ -92,4 +92,21 @@ test('setAllSitesOff skips the write when allSites is already false', async () =
   } finally {
     delete globalThis.chrome;
   }
+});
+
+import { hostKey, isPaused, withPaused } from '../extension/lib/settings.js';
+
+test('pausedHosts: normalized, deduped, canonical hosts only', () => {
+  assert.deepEqual(normalize({ pausedHosts: ['WWW.Example.com', 'example.com', 'bad host!', 5, 'a.org.'] }).pausedHosts, ['example.com', 'a.org']);
+  assert.deepEqual(normalize({ pausedHosts: 'x' }).pausedHosts, []);
+});
+
+test('isPaused / withPaused', () => {
+  const s = normalize({ pausedHosts: ['example.com'] });
+  assert.equal(isPaused(s, 'www.example.com'), true);
+  assert.equal(isPaused(s, 'other.com'), false);
+  assert.equal(isPaused(s, ''), false);
+  assert.deepEqual(withPaused([], 'Example.com', true), ['example.com']);
+  assert.deepEqual(withPaused(['example.com', 'a.org'], 'www.example.com', false), ['a.org']);
+  assert.equal(hostKey('///'), '');
 });

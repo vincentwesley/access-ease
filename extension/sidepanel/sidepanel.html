@@ -21,6 +21,7 @@
       <div class="pagestatus">
         <p id="page-status" class="state" data-active="unknown">Checking this page...</p>
         <button type="button" id="enable-all" class="btn primary" hidden>Apply on all sites</button>
+        <button type="button" id="resume" class="btn primary" hidden>Resume on this site</button>
       </div>
 
       <p id="sticky-notice" class="notice" role="alert" hidden></p>
@@ -63,6 +64,18 @@
             <span class="hint" id="motion-h">Stops moving and fading effects on the page.</span>
           </span>
           <input type="checkbox" role="switch" id="motion" aria-labelledby="motion-t" aria-describedby="motion-h" />
+          <span class="track" aria-hidden="true"></span>
+        </label>
+      </section>
+
+      <section class="card card-keep" aria-labelledby="pause-h">
+        <h2 id="pause-h" class="sr-only">This site</h2>
+        <label class="switch">
+          <span class="switch-text">
+            <span class="switch-title" id="pause-t">Pause on this site</span>
+            <span class="hint" id="pause-h2">Turns AccessEase off for this site only. Other sites keep your settings.</span>
+          </span>
+          <input type="checkbox" role="switch" id="pause" aria-labelledby="pause-t" aria-describedby="pause-h2" />
           <span class="track" aria-hidden="true"></span>
         </label>
       </section>

@@ -33,7 +33,7 @@ export function createStickyNotices(onChange = () => {}) {
  * failed = tabs that should have been reachable but were not (discarded tabs,
  * tabs we have no access to). Browser-protected pages never count as failures.
  */
-export async function sweepTabs(css, { skipTabId = null } = {}) {
+export async function sweepTabs(css, { skipTabId = null, pausedHosts = [] } = {}) {
   let tabs;
   try {
     tabs = await chrome.tabs.query({});
@@ -48,7 +48,7 @@ export async function sweepTabs(css, { skipTabId = null } = {}) {
           await chrome.scripting.executeScript({
             target: { tabId: t.id, allFrames: true },
             func: applyCssInPage,
-            args: [css],
+            args: [css, pausedHosts],
           });
           return 'ok';
         } catch (err) {
@@ -102,7 +102,7 @@ export function describeOff({ failedTabs, stillGranted }) {
  * registering the script, already-open tabs are styled right away.
  * getCss() is evaluated after the grant so it sees the latest settings.
  */
-export async function turnAllSitesOn(request, getCss, { persist = async () => {} } = {}) {
+export async function turnAllSitesOn(request, getCss, { persist = async () => {}, getPaused = () => [] } = {}) {
   if (!(await request)) return { ok: false };
   let swept;
   try {
@@ -115,7 +115,7 @@ export async function turnAllSitesOn(request, getCss, { persist = async () => {}
     if (!(await ensureConsistent(true))) throw new Error('all-sites access is not in place');
     // Inside the guarded region: a throw here must roll back too, not leave the
     // permission granted while reporting "was not turned on".
-    swept = await sweepTabs(getCss());
+    swept = await sweepTabs(getCss(), { pausedHosts: getPaused() });
   } catch {
     // Do not leave <all_urls> granted with the feature reported as off.
     try {

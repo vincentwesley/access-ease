@@ -1,4 +1,4 @@
-import { loadSettings, setAllSitesOff, normalize, defaultSettings, LIMITS, STORAGE_KEY } from '../lib/settings.js';
+import { loadSettings, setAllSitesOff, normalize, defaultSettings, LIMITS, STORAGE_KEY, hostKey, isPaused, withPaused } from '../lib/settings.js';
 import { buildCss, fontUrls } from '../lib/css.js';
 import { applyCssInPage } from '../lib/inject.js';
 import { isProtectedUrl } from '../lib/pages.js';
@@ -28,6 +28,7 @@ const MSG_LOAD = "AccessEase couldn't load your saved settings, so the defaults 
 let settings = normalize(null);
 let activeTabId = null;
 let windowId = null;
+let currentHost = ''; // hostname of the active tab, '' when unknown or not a website
 
 // ---------- small helpers ----------
 const say = (text) => {
@@ -96,6 +97,12 @@ function render() {
   $('dyslexia').checked = s.dyslexiaFont;
   $('motion').checked = s.reduceMotion;
   $('allsites').checked = s.allSites;
+  const pause = $('pause');
+  pause.checked = isPaused(s, currentHost);
+  pause.disabled = !currentHost;
+  $('pause-h2').textContent = currentHost
+    ? `Turns AccessEase off on ${currentHost} only. Other sites keep your settings.`
+    : 'Open a website and allow AccessEase on it to pause it there.';
 }
 
 // ---------- applying CSS to the tab ----------
@@ -119,15 +126,29 @@ async function applyToActiveTab() {
 }
 
 function showPageStatus(active, protectedPage) {
+  if (protectedPage) currentHost = '';
+  const paused = active && isPaused(settings, currentHost);
   const el = $('page-status');
-  el.dataset.active = active ? 'yes' : 'no';
-  el.textContent = active ? 'Active on this page' : 'Not active on this page';
+  el.dataset.active = active && !paused ? 'yes' : 'no';
+  el.textContent = paused ? 'Paused on this site' : active ? 'Active on this page' : 'Not active on this page';
   // A click in the panel is a valid user gesture for permissions.request.
   $('enable-all').hidden = active || protectedPage || settings.allSites;
+  $('resume').hidden = !paused;
   // Dim (but keep usable) the page controls while they cannot take effect.
-  $('main').dataset.inactive = active ? 'no' : 'yes';
-  statusMsg = active ? '' : protectedPage ? MSG_PROTECTED : settings.allSites ? MSG_RELOAD : MSG_NO_ACCESS;
+  $('main').dataset.inactive = active && !paused ? 'no' : 'yes';
+  statusMsg = paused
+    ? `AccessEase is paused on ${currentHost}. Use "Resume on this site" to turn it back on.`
+    : active ? '' : protectedPage ? MSG_PROTECTED : settings.allSites ? MSG_RELOAD : MSG_NO_ACCESS;
   showNotice();
+  render();
+}
+
+function hostOf(url) {
+  try {
+    return hostKey(new URL(url).hostname);
+  } catch {
+    return '';
+  }
 }
 
 async function doApply() {
@@ -149,17 +170,28 @@ async function doApply() {
     showPageStatus(false, true);
     return;
   }
+  currentHost = tab.url != null ? hostOf(tab.url) : '';
   const css = buildCss(settings, fontUrls((p) => chrome.runtime.getURL(p)));
   try {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id, allFrames: true },
       func: applyCssInPage,
-      args: [css],
+      args: [css, settings.pausedHosts],
     });
+    if (!currentHost) {
+      // Access is granted now, so the page can tell us its own host (no url permission needed).
+      try {
+        const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => location.hostname });
+        currentHost = hostKey(r && r.result);
+      } catch {
+        currentHost = '';
+      }
+    }
     showPageStatus(true, false);
   } catch (err) {
     // With no url to look at, the browser's own error tells a page nobody can
     // script (chrome://, the Web Store) from one we just have not been allowed on.
+    currentHost = '';
     showPageStatus(false, isProtectedError(err));
   }
 }
@@ -200,6 +232,18 @@ function bindControls() {
   });
 
   $('allsites').addEventListener('change', onAllSitesChange);
+  $('pause').addEventListener('change', (e) => setPaused(e.target.checked));
+  $('resume').addEventListener('click', () => {
+    setPaused(false);
+    $('pause').focus(); // the button hides once the site is resumed
+  });
+}
+
+function setPaused(paused) {
+  if (!currentHost) return;
+  const host = currentHost;
+  update({ pausedHosts: withPaused(settings.pausedHosts, host, paused) });
+  say(paused ? `AccessEase paused on ${host}.` : `AccessEase resumed on ${host}.`);
 }
 
 const getCss = () => buildCss(settings, fontUrls((p) => chrome.runtime.getURL(p)));
@@ -211,6 +255,7 @@ function enableAllSites(onDenied) {
   (async () => {
     try {
       const res = await turnAllSitesOn(request, getCss, {
+        getPaused: () => settings.pausedHosts,
         persist: async (on) => {
           // The button hides once allSites is true; keep keyboard focus in the panel.
           if (on && document.activeElement === $('enable-all')) $('allsites').focus();
