@@ -1,6 +1,6 @@
 # AccessEase end-to-end report
 
-Run: 2026-09-20T13:14:48.277Z | Playwright chromium-1243 | headed | win32
+Run: 2026-09-20T14:14:23.157Z | Playwright chromium-1243 | headed | win32
 
 **47/47 checks passed.**
 
@@ -96,7 +96,7 @@ px.html 200%: before {"h1":18,"h2":16,"h3":15,"p":14,"inp":14} after {"h1":44.8,
 all-sites off: other tab cleared; sticky notice + announcement say Chrome still holds access (required permission in the granted copy cannot be removed)
 all-sites on: an already-open tab was styled by the sweep
 strict-CSP page: styled by the content script (contrast, size, font-family applied); document.fonts=["AccessEase OpenDyslexic:loaded","AccessEase OpenDyslexic:loaded"]; console: []
-forced-colors: {"onTrack":["rgb(55, 0, 110)","1.6px","rgb(255, 255, 255)","matrix(1, 0, 0, 1, 22, 0)"],"offTrack":["rgb(255, 255, 255)","1.6px","rgb(0, 0, 0)","none"],"seg":["rgb(55, 0, 110)","rgb(255, 255, 255)","\"✓ \""],"otherSeg":"rgba(255, 255, 255, 0)","dot":["rgb(55, 0, 110)","1.6px"],"ring":["solid","2.4px","rgb(255, 255, 255)"],"forced":true}
+forced-colors: {"onTrack":["rgb(59, 6, 113)","1.6px","rgb(255, 255, 255)","matrix(1, 0, 0, 1, 21.3289, 0)"],"offTrack":["rgb(255, 255, 255)","1.6px","rgb(0, 0, 0)","none"],"seg":["rgb(55, 0, 110)","rgb(255, 255, 255)","\"✓ \""],"otherSeg":"rgba(255, 255, 255, 0)","dot":["rgb(55, 0, 110)","1.6px"],"ring":["solid","2.4px","rgb(255, 255, 255)"],"forced":true}
 console errors (B, final): []
 screenshot docs/screenshots/1-text-size-and-dyslexia-font.png (1280x800)
 screenshot docs/screenshots/2-high-contrast-dark.png (1280x800)
