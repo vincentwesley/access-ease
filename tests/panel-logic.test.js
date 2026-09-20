@@ -8,7 +8,7 @@ import {
   describeOff,
   describeOn,
   adoptExternalSettings,
-  noteOwnSave,
+  MAX_ECHOES,
   consumeEcho,
   writeMerged,
   adoptMerged,
@@ -160,12 +160,12 @@ test('adoptExternalSettings: another window changed a setting -> adopt; echo, eq
   assert.equal(adoptExternalSettings(current, { textScale: 999 }, 0).textScale, 200, 'normalized');
 });
 
-test('a late echo of an older own save never reverts a newer local value', () => {
+test('a late echo of an older own save never reverts a newer local value', async () => {
   const echoes = [];
   const older = normalize({ textScale: 120 });
   const newer = normalize({ textScale: 140 });
-  noteOwnSave(echoes, older);
-  noteOwnSave(echoes, newer);
+  await writeMerged({ textScale: 120 }, echoes, { load: async () => defaultSettings(), save: async () => {} });
+  await writeMerged({ textScale: 140 }, echoes, { load: async () => older, save: async () => {} });
   // pending saves already drained (0) but the older echo arrives late
   assert.equal(adoptExternalSettings(newer, older, 0, echoes), null);
   assert.equal(adoptExternalSettings(newer, newer, 0, echoes), null);
@@ -200,6 +200,7 @@ test('turning all-sites ON: if registering fails after the grant, roll back the 
   assert.equal(r.stillGranted, false);
   assert.deepEqual(persisted, [true, false]);
   assert.equal(st.granted, false);
+  assert.equal(st.registered, false);
 });
 
 test('turning all-sites ON: if saving the setting fails, nothing is left registered and the permission is removed', async () => {
@@ -275,10 +276,45 @@ test('writeMerged: skip-if-equal leaves no phantom echo; a failed save removes i
   assert.equal(echoes.length, 0);
 });
 
-test('adoptMerged: adopts a differing merge only when no newer save is queued', () => {
+test('adoptMerged: adopts only untouched keys, never allSites, only when no save is queued or failed', () => {
   const local = normalize({ textScale: 100 });
-  const merged = normalize({ textScale: 100, allSites: true });
-  assert.deepEqual(adoptMerged(local, merged, 0), merged);
-  assert.equal(adoptMerged(local, merged, 1), null);
+  const merged = normalize({ textScale: 130, contrast: 'dark', allSites: true });
+  const out = adoptMerged(local, merged, 0, { textScale: 100 });
+  assert.equal(out.contrast, 'dark');
+  assert.equal(out.textScale, 100, 'patched key keeps the local value');
+  assert.equal(out.allSites, false, 'allSites is never adopted');
+  assert.equal(adoptMerged(local, merged, 1, {}), null);
+  assert.equal(adoptMerged(local, merged, 0, {}, true), null, 'failed save pending');
   assert.equal(adoptMerged(local, local, 0), null);
+});
+
+test('OFF with a failed save, then an ordinary edit: the stale stored allSites=true is not re-adopted', async () => {
+  // local: user turned it off, but the write failed so storage still says true
+  let local = normalize({ allSites: false });
+  const stored = normalize({ allSites: true });
+  const echoes = [];
+  const { value } = await writeMerged({ textScale: 120 }, echoes, { load: async () => stored, save: async () => {} });
+  local = normalize({ ...local, textScale: 120 });
+  assert.equal(value.allSites, true);
+  assert.equal(adoptMerged(local, value, 0, { textScale: 120 }), null, 'checkbox stays unchecked');
+});
+
+test('a failed save must not let the next save revert unsaved local values', async () => {
+  const local = normalize({ textScale: 150, contrast: 'dark' }); // contrast save failed earlier
+  const value = normalize({ textScale: 150 }); // storage lacks contrast
+  assert.equal(adoptMerged(local, value, 0, { textScale: 150 }, true), null);
+});
+
+test('writeMerged caps the echo list', async () => {
+  const echoes = [];
+  let stored = defaultSettings();
+  for (let i = 0; i < MAX_ECHOES + 20; i++) {
+    const cur = stored;
+    const r = await writeMerged({ textScale: i % 2 ? 110 : 120 }, echoes, {
+      load: async () => cur,
+      save: async (v) => { stored = v; },
+    });
+    assert.ok(r);
+  }
+  assert.ok(echoes.length <= MAX_ECHOES);
 });

@@ -13,7 +13,13 @@ async function isRegistered() {
 }
 
 export async function unregisterApplyScript() {
-  if (await isRegistered()) await chrome.scripting.unregisterContentScripts({ ids: [SCRIPT_ID] });
+  if (!(await isRegistered())) return;
+  try {
+    await chrome.scripting.unregisterContentScripts({ ids: [SCRIPT_ID] });
+  } catch (err) {
+    // Another context may have removed it first ("Nonexistent script ID"): that is the goal.
+    if (await isRegistered().catch(() => true)) throw err;
+  }
 }
 
 // Idempotent: the service worker and the panel can race to register. Never
@@ -32,7 +38,12 @@ export async function registerApplyScript() {
     await chrome.scripting.registerContentScripts([script]);
   } catch (err) {
     if (!(await isRegistered().catch(() => false))) throw err;
-    await chrome.scripting.updateContentScripts([script]);
+    try {
+      await chrome.scripting.updateContentScripts([script]);
+    } catch {
+      // Non-fatal: the script is there. If it vanished meanwhile, register it again.
+      if (!(await isRegistered().catch(() => false))) await chrome.scripting.registerContentScripts([script]);
+    }
   }
 }
 

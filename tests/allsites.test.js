@@ -31,7 +31,9 @@ function installChrome({ granted = false, registered = false, removeWorks = true
         assert.deepEqual(list[0].js, ['content/apply.js']);
         st.registered = true;
       },
-      updateContentScripts: async () => {
+      updateContentScripts: async (list) => {
+        assert.equal(list[0].id, SCRIPT_ID);
+        assert.deepEqual(list[0].js, ['content/apply.js']);
         st.updates = (st.updates || 0) + 1;
       },
       unregisterContentScripts: async () => {
@@ -147,4 +149,43 @@ test('registerApplyScript: a real failure (nothing registered) still rejects', a
     throw new Error('boom');
   };
   await assert.rejects(registerApplyScript(), /boom/);
+});
+
+test('unregisterApplyScript tolerates a script another context removed first; disableAllSites still removes the permission', async () => {
+  const st = installChrome({ granted: true, registered: true });
+  globalThis.chrome.scripting.unregisterContentScripts = async () => {
+    st.registered = false;
+    throw new Error('Nonexistent script ID');
+  };
+  await disableAllSites();
+  assert.equal(st.granted, false);
+});
+
+test('unregisterApplyScript: a real failure (still registered) rejects', async () => {
+  installChrome({ granted: true, registered: true });
+  globalThis.chrome.scripting.unregisterContentScripts = async () => { throw new Error('nope'); };
+  await assert.rejects(disableAllSites(), /nope/);
+});
+
+test('registerApplyScript: a rejecting updateContentScripts is non-fatal when the script is there', async () => {
+  const st = installChrome({ registered: true });
+  globalThis.chrome.scripting.registerContentScripts = async () => { throw new Error('Duplicate script ID'); };
+  globalThis.chrome.scripting.updateContentScripts = async () => { throw new Error('update failed'); };
+  await registerApplyScript();
+  assert.equal(st.registered, true);
+});
+
+test('registerApplyScript: if update fails because the script vanished, it is registered again', async () => {
+  const st = installChrome({ registered: true });
+  let n = 0;
+  globalThis.chrome.scripting.registerContentScripts = async () => {
+    if (n++ === 0) throw new Error('Duplicate script ID');
+    st.registered = true;
+  };
+  globalThis.chrome.scripting.updateContentScripts = async () => {
+    st.registered = false;
+    throw new Error('Nonexistent script ID');
+  };
+  await registerApplyScript();
+  assert.equal(st.registered, true);
 });

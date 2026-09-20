@@ -162,13 +162,8 @@ export function adoptExternalSettings(current, rawNewValue, pendingSaves, echoes
   return JSON.stringify(next) === JSON.stringify(current) ? null : next;
 }
 
+export const MAX_ECHOES = 50;
 const ser = (v) => JSON.stringify(migrate(v));
-
-/** Remember a value we are about to save, so its storage event can be recognised later. */
-export function noteOwnSave(echoes, snapshot, max = 50) {
-  echoes.push(ser(snapshot));
-  if (echoes.length > max) echoes.shift();
-}
 
 /**
  * Is this storage value the (possibly late) echo of one of our own saves?
@@ -194,6 +189,7 @@ export async function writeMerged(patch, echoes, { load = loadSettings, save = s
   if (JSON.stringify(next) === JSON.stringify(stored)) return { value: stored, written: false };
   const key = ser(next);
   echoes.push(key);
+  while (echoes.length > MAX_ECHOES) echoes.shift();
   try {
     await save(next);
   } catch (err) {
@@ -204,8 +200,28 @@ export async function writeMerged(patch, echoes, { load = loadSettings, save = s
   return { value: next, written: true };
 }
 
-/** After a save: adopt the merged value if it differs from local state and no newer save is queued. */
-export function adoptMerged(current, merged, queuedAfter) {
-  if (queuedAfter > 0) return null;
-  return JSON.stringify(normalize(merged)) === JSON.stringify(current) ? null : normalize(merged);
+const sameIgnoringAllSites = (a, b) => ser({ ...a, allSites: false }) === ser({ ...b, allSites: false });
+
+/** Does the value that reached storage equal local state (all-sites aside)? Then no failed save is pending any more. */
+export const savedMatchesLocal = sameIgnoringAllSites;
+
+/**
+ * After a save: which merged values should the panel adopt from storage?
+ * - never allSites: the panel's live permission check owns it (external changes
+ *   arrive through adoptExternalSettings), so a stale stored true cannot re-check the box;
+ * - never a key the patch touched (that is what we just wrote);
+ * - nothing while a save has failed (local values not in storage would be reverted);
+ * - nothing while a newer save is queued.
+ * Returns the settings to show, or null for no change.
+ */
+export function adoptMerged(current, merged, queuedAfter, patch = {}, failedPending = false) {
+  if (queuedAfter > 0 || failedPending) return null;
+  const m = normalize(merged);
+  const next = { ...current };
+  for (const k of Object.keys(m)) {
+    if (k === 'allSites' || k in patch) continue;
+    next[k] = m[k];
+  }
+  const out = normalize(next);
+  return JSON.stringify(out) === JSON.stringify(current) ? null : out;
 }

@@ -13,6 +13,7 @@ import {
   adoptExternalSettings,
   writeMerged,
   adoptMerged,
+  savedMatchesLocal,
 } from '../lib/panel-logic.js';
 
 const $ = (id) => document.getElementById(id);
@@ -68,6 +69,7 @@ const setSticky = (key, text) => sticky.set(key, text);
 // ---------- settings ----------
 let saveChain = Promise.resolve();
 const echoes = []; // our own saved values, to recognise late storage echoes
+let saveFailed = false; // a save failed and local values may not be in storage: do not adopt over them
 let pendingSaves = 0; // our own in-flight saves: their storage events are echoes, not other windows
 function update(patch) {
   settings = normalize({ ...settings, ...patch });
@@ -80,7 +82,8 @@ function update(patch) {
     const { value } = await writeMerged(patch, echoes);
     // The merge may differ from local state (another context's change): adopt it
     // unless a newer local edit is queued behind this one.
-    const adopted = adoptMerged(settings, value, pendingSaves - 1);
+    if (savedMatchesLocal(value, settings)) saveFailed = false;
+    const adopted = adoptMerged(settings, value, pendingSaves - 1, patch, saveFailed);
     if (adopted) {
       settings = adopted;
       render();
@@ -90,7 +93,10 @@ function update(patch) {
   });
   saveChain = attempt
     .then(() => setSticky('save', ''))
-    .catch(() => setSticky('save', MSG_SAVE))
+    .catch(() => {
+      saveFailed = true;
+      setSticky('save', MSG_SAVE);
+    })
     .finally(() => {
       pendingSaves -= 1;
     });
@@ -298,6 +304,8 @@ async function init() {
     const fresh = await reconcileFresh(loadSettings);
     settings = fresh.settings;
     if (settings.allSites && !fresh.ok) {
+      // Safe outside saveChain: init runs before the controls and listeners exist,
+      // so no update() can be in flight yet.
       settings = await setAllSitesOff();
     }
   } catch {
@@ -317,18 +325,24 @@ async function init() {
   chrome.storage.onChanged.addListener(onStorageChanged);
   // Access revoked from chrome://extensions: the service worker clears the setting; refresh the status.
   chrome.permissions.onRemoved.addListener(async () => {
+    let fresh = null;
     try {
-      const fresh = await reconcileFresh(loadSettings);
-      if (fresh.settings.allSites && !fresh.ok) {
-        await writeMerged({ allSites: false }, echoes); // echo only if a write really happens
-      }
+      fresh = await reconcileFresh(loadSettings);
+    } catch {
+      // The storage event from the service worker still refreshes us.
+    }
+    if (fresh) {
+      // Correct the UI first so a failing write cannot skip it.
       const allSites = fresh.settings.allSites && fresh.ok;
       if (allSites !== settings.allSites) {
         settings = normalize({ ...settings, allSites });
         render();
       }
-    } catch {
-      // The storage event from the service worker still refreshes us.
+      if (fresh.settings.allSites && !fresh.ok) {
+        // Through the same save chain as every other save (no lost updates).
+        // update() shows the save notice itself if the write fails.
+        await update({ allSites: false }).catch(() => {});
+      }
     }
     applyToActiveTab();
   });
