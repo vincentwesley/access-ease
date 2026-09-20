@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contrast fixture</title>
+<style>
+  body { margin: 0; padding: 16px; font: 16px/1.5 sans-serif; color: #222; background: #fff; }
+  a.btn { display: inline-block; background: #d00; color: #fff; padding: 8px 16px; text-decoration: none; border: 0; border-radius: 6px; }
+  .star::before { content: "\2605 "; color: #d00; }
+  .fa { font-family: "FakeIconFont", serif; }
+  .badge2 { background-image: linear-gradient(90deg, #c00, #fa0); color: #fff; padding: 0 6px; }
+  .badge { background: #c00; color: #fff; border-radius: 8px; padding: 0 6px; font-size: 12px; }
+</style>
+</head>
+<body>
+<p><a class="btn" id="cta" href="#buy">Buy now</a></p>
+<p id="star" class="star">Favourite</p>
+<p>Inbox <span class="badge" id="badge">3</span></p>
+<p>This is <i id="italic">a genuine italic</i> and <i id="icon" class="fa fa-star">x</i>.</p>
+<p><span class="badge2" id="badge2">gradient badge</span> <a class="chip" id="chip" href="#c" style="background-image:linear-gradient(#0a0,#050);color:#fff;padding:0 6px">chip</a></p>
+<p><input id="bad" type="email" value="not-an-email" required> <input id="aria-bad" aria-invalid="true" value="x"> <input id="good" value="ok"></p>
+</body>
+</html>

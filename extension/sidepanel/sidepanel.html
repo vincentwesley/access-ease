@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>AccessEase</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+    <script type="module" src="sidepanel.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>AccessEase</h1>
+        <p class="tagline">Make this page easier to read.</p>
+      </div>
+      <button type="button" id="reset" class="btn">Reset my settings</button>
+    </header>
+
+    <main id="main" data-inactive="no">
+      <div class="pagestatus">
+        <p id="page-status" class="state" data-active="unknown">Checking this page...</p>
+        <button type="button" id="enable-all" class="btn primary" hidden>Apply on all sites</button>
+      </div>
+
+      <p id="sticky-notice" class="notice" role="alert" hidden></p>
+      <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
+
+      <section class="card" aria-labelledby="size-h">
+        <h2 id="size-h">Text size</h2>
+        <div class="row">
+          <button type="button" id="size-down" class="btn icon" aria-label="Make text smaller">&minus;</button>
+          <input type="range" id="size" min="100" max="200" step="10" value="100" aria-labelledby="size-h" aria-valuetext="100 percent" />
+          <button type="button" id="size-up" class="btn icon" aria-label="Make text larger">+</button>
+        </div>
+        <p class="value" aria-hidden="true"><output id="size-out" for="size">100%</output></p>
+      </section>
+
+      <section class="card">
+        <fieldset id="contrast">
+          <legend><h2>Contrast</h2></legend>
+          <div class="segmented">
+            <label><input type="radio" name="contrast" value="off" /><span>Off</span></label>
+            <label><input type="radio" name="contrast" value="light" /><span>Black on white</span></label>
+            <label><input type="radio" name="contrast" value="dark" /><span>White on black</span></label>
+          </div>
+        </fieldset>
+      </section>
+
+      <section class="card" aria-labelledby="options-h">
+        <h2 id="options-h" class="sr-only">Font and motion</h2>
+        <label class="switch">
+          <span class="switch-text">
+            <span class="switch-title" id="dyslexia-t">Dyslexia-friendly font</span>
+            <span class="hint" id="dyslexia-h">Uses the OpenDyslexic font with more space between lines.</span>
+          </span>
+          <input type="checkbox" role="switch" id="dyslexia" aria-labelledby="dyslexia-t" aria-describedby="dyslexia-h" />
+          <span class="track" aria-hidden="true"></span>
+        </label>
+        <label class="switch">
+          <span class="switch-text">
+            <span class="switch-title" id="motion-t">Reduce animations</span>
+            <span class="hint" id="motion-h">Stops moving and fading effects on the page.</span>
+          </span>
+          <input type="checkbox" role="switch" id="motion" aria-labelledby="motion-t" aria-describedby="motion-h" />
+          <span class="track" aria-hidden="true"></span>
+        </label>
+      </section>
+
+      <section class="card card-keep" aria-labelledby="sites-h">
+        <h2 id="sites-h" class="sr-only">All sites</h2>
+        <label class="switch">
+          <span class="switch-text">
+            <span class="switch-title" id="allsites-t">Apply on all sites</span>
+            <span class="hint" id="allsites-h">Keeps your settings working as you move from page to page. Chrome will ask to let AccessEase read and change sites.</span>
+          </span>
+          <input type="checkbox" role="switch" id="allsites" aria-labelledby="allsites-t" aria-describedby="allsites-h" />
+          <span class="track" aria-hidden="true"></span>
+        </label>
+      </section>
+    </main>
+
+    <footer>Nothing leaves your device.</footer>
+    <div id="status" class="sr-only" role="status" aria-live="polite"></div>
+  </body>
+</html>

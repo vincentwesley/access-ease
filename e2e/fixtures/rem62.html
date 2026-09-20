@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>62.5% root fixture</title>
+<style>
+  /* The common "1rem = 10px" trick: everything is sized in rem. */
+  html { font-size: 62.5%; }
+  body { margin: 0; padding: 1.6rem; font: 1.4rem/1.4 Georgia, serif; color: #333; background: #fafafa; }
+  h1 { font-size: 2.6rem; margin: 0 0 1rem; }
+  p { margin: 0 0 1rem; }
+  p.small { font-size: 1.2rem; }
+  /* fixed height, but in rem, so it must grow with the text and never clip it */
+  .box { width: 30rem; height: 6rem; overflow: hidden; background: #e8e8e8; }
+  .box p { margin: 0; }
+</style>
+</head>
+<body>
+<h1 id="h">Ten pixel root</h1>
+<p id="body-p">Body text set in rem on a page whose root is ten pixels.</p>
+<p id="small" class="small">Small print in rem.</p>
+<div class="box" id="box"><p id="box-p">A fixed height container with two lines of text inside it.</p></div>
+</body>
+</html>

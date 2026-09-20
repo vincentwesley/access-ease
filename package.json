@@ -1,0 +1,24 @@
+{
+  "name": "access-ease",
+  "version": "1.0.0",
+  "description": "AccessEase: a Chrome side panel. Make any web page easier to read: bigger text, high contrast, a dyslexia-friendly font and calmer motion.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test tests/",
+    "lint": "eslint .",
+    "build": "node scripts/build.mjs",
+    "test:e2e": "node --test --test-concurrency=1 e2e/"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "playwright": "^1.63.0"
+  }
+}
