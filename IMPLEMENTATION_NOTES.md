@@ -37,9 +37,9 @@ No other extension bugs were found: text size, contrast, dyslexia font (face loa
 
 ## Known limitations (deferred, not built)
 
-- Per-site pause (turn AccessEase off for one site).
-- Leaf `div`/`span` text is not scaled on px-sized sites (the floor covers paragraphs, list items, table cells, headings and form fields only). Scaling arbitrary leaves risks breaking fixed-height chrome.
-- The range slider is not narrowed further at 260px panel width.
+- (Done, see DECISIONS.md 40-45: per-site pause, leaf div/span scaling, narrow-panel slider.)
+- Pausing a site does not clear other tabs of it that were styled only by the all-sites "on" sweep (no content script yet) until they reload; the active tab and content-script tabs update at once.
+- Leaf text added to a page after AccessEase applied (dynamic content) is only scaled at the next re-apply (load/settings change).
 - The activeTab grant from a toolbar click cannot be verified in automation; the "click the AccessEase icon twice" advice in the first-run message relies on it.
 - Text size on px-sized sites is approximate (floor-based); see Text scale above.
 - Tabs styled by the all-sites "on" sweep have no content script until they are reloaded, so later setting changes reach them only when they are reloaded or become the active tab while the panel is open.

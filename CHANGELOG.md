@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- "Pause on this site": turns AccessEase off for the current site's hostname (stored locally as `pausedHosts`), with a clear "Paused on this site" state and a "Resume on this site" button. Respected by the panel, the all-sites content script and the sweep when all-sites is turned on.
+- Text size now also scales leaf `div`/`span`/`a`/`strong`/`b`/`em`/`small` text that is sized in px and did not follow the page's root size (small text only, skips clipped or icon elements).
+
+### Fixed
+- Text size slider is no longer cramped at ~260px panel width: the slider gets its own full-width row above the two buttons.
+
 ## [1.0.0] - 2026-09-20
 
 ### Added

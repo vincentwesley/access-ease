@@ -3,7 +3,7 @@
 **AccessEase collects no data and makes no network requests.**
 
 ## What is stored
-Your settings (text size, contrast mode, dyslexia font, reduce motion, "apply on all sites") are stored locally in your browser via `chrome.storage.local`. They never leave your device and are removed when you uninstall the extension.
+Your settings (text size, contrast mode, dyslexia font, reduce motion, "apply on all sites", and the hostnames of sites you paused AccessEase on) are stored locally in your browser via `chrome.storage.local`. They never leave your device and are removed when you uninstall the extension.
 
 ## What is not done
 - No accounts, analytics, telemetry, advertising or tracking.

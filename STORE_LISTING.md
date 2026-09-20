@@ -27,6 +27,7 @@ AccessEase makes web pages easier to read. Open the side panel, adjust a few set
 
 What you can change
 - Text size: 100% to 200%, in 10% steps.
+- Pause AccessEase on any single site and resume it later.
 - High contrast: black on white or white on black. Photos and videos are left as they are.
 - Dyslexia-friendly font: the OpenDyslexic typeface, bundled with the extension, plus slightly more spacing between words and lines.
 - Reduce animations: stops animations, transitions and smooth scrolling.
@@ -67,7 +68,7 @@ https://github.com/vincentwesley/access-ease/blob/main/PRIVACY.md
 
 **storage**
 ```
-Saves the user's settings (text size, contrast mode, dyslexia font, reduce motion, apply-on-all-sites) in chrome.storage.local so they persist between sessions. Nothing is synced or sent off the device.
+Saves the user's settings (text size, contrast mode, dyslexia font, reduce motion, apply-on-all-sites, and the hostnames of sites the user paused) in chrome.storage.local so they persist between sessions. Nothing is synced or sent off the device.
 ```
 
 **activeTab**

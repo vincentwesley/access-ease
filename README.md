@@ -19,7 +19,8 @@ AccessEase is a Chrome side panel. No account, no backend, no telemetry.
 
 ## Features
 
-- **Text size:** 100% to 200% in 10% steps, with a live percentage.
+- **Text size:** 100% to 200% in 10% steps, with a live percentage. Plain text in `div`/`span`/link elements sized in pixels is scaled too (conservatively).
+- **Pause on this site:** turn AccessEase off for one website only, and resume it from the panel. The list of paused sites is stored locally.
 - **High contrast:** off, black on white, or white on black. Photos and videos are left untouched.
 - **Dyslexia-friendly font:** bundled OpenDyslexic with slightly more word and line spacing.
 - **Reduce animations:** stops animations, transitions and smooth scrolling.
