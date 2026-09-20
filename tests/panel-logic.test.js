@@ -12,6 +12,8 @@ import {
   consumeEcho,
   writeMerged,
   adoptMerged,
+  createSaver,
+  savedMatchesLocal,
   isProtectedError,
 } from '../extension/lib/panel-logic.js';
 import { defaultSettings, normalize } from '../extension/lib/settings.js';
@@ -317,4 +319,115 @@ test('writeMerged caps the echo list', async () => {
     assert.ok(r);
   }
   assert.ok(echoes.length <= MAX_ECHOES);
+});
+
+// ---- createSaver: failed-save bookkeeping ----
+function makeSaver(initial = {}) {
+  const env = {
+    settings: normalize(initial),
+    stored: normalize(initial),
+    failNext: 0,
+    sticky: '',
+    renders: 0,
+    applies: 0,
+    writes: [],
+  };
+  const load = async () => env.stored;
+  const save = async (v) => {
+    if (env.failNext > 0) {
+      env.failNext -= 1;
+      throw new Error('quota');
+    }
+    env.stored = v;
+  };
+  env.saver = createSaver({
+    getSettings: () => env.settings,
+    setSettings: (s) => {
+      env.settings = s;
+    },
+    render: () => {
+      env.renders += 1;
+    },
+    apply: () => {
+      env.applies += 1;
+    },
+    setSticky: (k, t) => {
+      assert.equal(k, 'save');
+      env.sticky = t;
+    },
+    msgSave: 'SAVE FAILED',
+    write: (patch, echoes) => {
+      env.writes.push({ ...patch });
+      return writeMerged(patch, echoes, { load, save });
+    },
+  });
+  return env;
+}
+
+test('createSaver: failed contrast save is retried by a later size save; notice clears only then', async () => {
+  const e = makeSaver();
+  e.failNext = 1;
+  await assert.rejects(e.saver.update({ contrast: 'dark' }), /quota/);
+  assert.equal(e.sticky, 'SAVE FAILED');
+  assert.deepEqual(e.saver.dirtyKeys, ['contrast']);
+  assert.equal(e.stored.contrast, 'off');
+  await e.saver.update({ textScale: 150 });
+  assert.deepEqual(e.writes[1], { contrast: 'dark', textScale: 150 }, 'failed key merged into next write');
+  assert.equal(e.stored.contrast, 'dark');
+  assert.equal(e.stored.textScale, 150);
+  assert.equal(e.sticky, '', 'cleared only after the retry landed');
+  assert.deepEqual(e.saver.dirtyKeys, []);
+});
+
+test('createSaver: notice stays while a retry also fails', async () => {
+  const e = makeSaver();
+  e.failNext = 2;
+  await assert.rejects(e.saver.update({ contrast: 'dark' }));
+  await assert.rejects(e.saver.update({ textScale: 150 }));
+  assert.equal(e.sticky, 'SAVE FAILED');
+  assert.deepEqual(e.saver.dirtyKeys.sort(), ['contrast', 'textScale']);
+  await e.saver.update({ dyslexiaFont: true });
+  assert.equal(e.sticky, '');
+  assert.equal(e.stored.contrast, 'dark');
+  assert.equal(e.stored.textScale, 150);
+});
+
+test('createSaver: retry uses the current local value of a dirty key', async () => {
+  const e = makeSaver();
+  e.failNext = 1;
+  await assert.rejects(e.saver.update({ contrast: 'dark' }));
+  e.settings = normalize({ ...e.settings, contrast: 'light' }); // changed locally since (e.g. adopted)
+  await e.saver.update({ textScale: 130 });
+  assert.equal(e.stored.contrast, 'light');
+});
+
+test('createSaver: external change to an untouched key is adopted once back in sync', async () => {
+  const e = makeSaver();
+  e.failNext = 1;
+  await assert.rejects(e.saver.update({ contrast: 'dark' }));
+  e.stored = normalize({ ...e.stored, reduceMotion: true }); // another window
+  // dirty: not adopted, local contrast survives
+  await e.saver.update({ textScale: 150 });
+  assert.equal(e.sticky, '');
+  assert.equal(e.stored.contrast, 'dark');
+  assert.equal(e.settings.contrast, 'dark');
+  assert.equal(e.settings.reduceMotion, true, 'adopted after the dirty key landed');
+});
+
+test('createSaver: external change is NOT adopted while a save is still failing', async () => {
+  const e = makeSaver();
+  e.failNext = 1;
+  await assert.rejects(e.saver.update({ contrast: 'dark' }));
+  e.stored = normalize({ ...e.stored, reduceMotion: true });
+  e.failNext = 1;
+  await assert.rejects(e.saver.update({ textScale: 150 }));
+  assert.equal(e.settings.reduceMotion, false);
+  assert.equal(e.sticky, 'SAVE FAILED');
+});
+
+test('savedMatchesLocal: equal apart from allSites clears, any other difference does not', () => {
+  const a = normalize({ contrast: 'dark' });
+  assert.equal(savedMatchesLocal(a, normalize({ contrast: 'dark', allSites: true })), true);
+  assert.equal(savedMatchesLocal(a, normalize({ contrast: 'light' })), false);
+  assert.equal(savedMatchesLocal(a, normalize({ contrast: 'dark', textScale: 150 })), false);
 });

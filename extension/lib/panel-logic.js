@@ -225,3 +225,75 @@ export function adoptMerged(current, merged, queuedAfter, patch = {}, failedPend
   const out = normalize(next);
   return JSON.stringify(out) === JSON.stringify(current) ? null : out;
 }
+
+/**
+ * The panel's save bookkeeping, DOM-free. Injected: getSettings/setSettings (local state),
+ * render, apply (re-apply to the tab), setSticky(key, text), write(patch, echoes)
+ * (defaults to writeMerged), and msgSave (the "could not save" text).
+ *
+ * A failed save leaves its keys "dirty": they are merged (with their current local
+ * values) into the next write so they are retried, adoption from storage is blocked
+ * while any are dirty (it would revert what the user sees), and the sticky notice
+ * stays up. Dirty keys clear only once a write succeeded and storage holds the local
+ * value for them; then adoption resumes and picks up the rest.
+ */
+export function createSaver({ getSettings, setSettings, render, apply, setSticky, msgSave, write = writeMerged }) {
+  let chain = Promise.resolve();
+  let pending = 0; // our own in-flight saves: their storage events are echoes
+  const echoes = []; // our written values, to recognise late storage echoes
+  const dirty = new Set();
+
+  function update(patch) {
+    setSettings(normalize({ ...getSettings(), ...patch }));
+    render();
+    pending += 1;
+    const attempt = chain.then(async () => {
+      const local = getSettings();
+      const toWrite = {};
+      for (const k of dirty) toWrite[k] = local[k]; // retry failed keys with their current local value
+      Object.assign(toWrite, patch);
+      let value;
+      try {
+        ({ value } = await write(toWrite, echoes));
+      } catch (err) {
+        for (const k of Object.keys(toWrite)) dirty.add(k);
+        setSticky('save', msgSave);
+        throw err;
+      }
+      const now = getSettings();
+      for (const k of [...dirty]) if (ser({ [k]: value[k] }) === ser({ [k]: now[k] })) dirty.delete(k);
+      if (dirty.size === 0) setSticky('save', '');
+      else setSticky('save', msgSave);
+      // The merge may differ from local state (another context's change): adopt it
+      // unless a newer local edit is queued or a failed value is still unsaved.
+      const adopted = adoptMerged(now, value, pending - 1, patch, dirty.size > 0);
+      if (adopted) {
+        setSettings(adopted);
+        render();
+        apply();
+      }
+      return value;
+    });
+    chain = attempt
+      .then(
+        () => {},
+        () => {},
+      )
+      .finally(() => {
+        pending -= 1;
+      });
+    apply();
+    return attempt; // rejects if this save failed (the sticky notice is shown either way)
+  }
+
+  return {
+    update,
+    echoes,
+    get pending() {
+      return pending;
+    },
+    get dirtyKeys() {
+      return [...dirty];
+    },
+  };
+}

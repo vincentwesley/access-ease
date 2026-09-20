@@ -189,3 +189,29 @@ test('registerApplyScript: if update fails because the script vanished, it is re
   await registerApplyScript();
   assert.equal(st.registered, true);
 });
+
+test('registerApplyScript: re-register after a vanished script tolerates a duplicate-id race, but rethrows when nothing is registered', async () => {
+  // race: script vanished, our re-register hits "duplicate" because another context registered it
+  installChrome({ registered: true });
+  let reg = 0;
+  let checks = 0;
+  globalThis.chrome.scripting.getRegisteredContentScripts = async () => {
+    checks += 1;
+    // 1: after first register fail (present), 2: after update fail (gone), 3+: after re-register fail (present again)
+    return checks === 2 ? [] : [{ id: SCRIPT_ID }];
+  };
+  globalThis.chrome.scripting.registerContentScripts = async () => {
+    reg += 1;
+    throw new Error('Duplicate script ID');
+  };
+  globalThis.chrome.scripting.updateContentScripts = async () => { throw new Error('update failed'); };
+  await registerApplyScript();
+  assert.equal(reg, 2);
+  // real failure: nothing is ever registered
+  installChrome({ registered: true });
+  checks = 0;
+  globalThis.chrome.scripting.getRegisteredContentScripts = async () => (++checks === 1 ? [{ id: SCRIPT_ID }] : []);
+  globalThis.chrome.scripting.registerContentScripts = async () => { throw new Error('boom2'); };
+  globalThis.chrome.scripting.updateContentScripts = async () => { throw new Error('update failed'); };
+  await assert.rejects(registerApplyScript(), /boom2/);
+});

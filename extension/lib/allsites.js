@@ -42,7 +42,14 @@ export async function registerApplyScript() {
       await chrome.scripting.updateContentScripts([script]);
     } catch {
       // Non-fatal: the script is there. If it vanished meanwhile, register it again.
-      if (!(await isRegistered().catch(() => false))) await chrome.scripting.registerContentScripts([script]);
+      if (!(await isRegistered().catch(() => false))) {
+        try {
+          await chrome.scripting.registerContentScripts([script]);
+        } catch (err2) {
+          // Another context may have registered it in the gap (duplicate id): that is success.
+          if (!(await isRegistered().catch(() => false))) throw err2;
+        }
+      }
     }
   }
 }

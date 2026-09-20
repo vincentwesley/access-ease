@@ -2,7 +2,7 @@ import { loadSettings, setAllSitesOff, normalize, defaultSettings, LIMITS, STORA
 import { buildCss, fontUrls } from '../lib/css.js';
 import { applyCssInPage } from '../lib/inject.js';
 import { isProtectedUrl } from '../lib/pages.js';
-import { requestAllSitesPermission, reconcileFresh } from '../lib/allsites.js';
+import { requestAllSitesPermission, reconcileFresh, hasAllSitesPermission } from '../lib/allsites.js';
 import {
   createStickyNotices,
   isProtectedError,
@@ -11,9 +11,7 @@ import {
   describeOn,
   describeOff,
   adoptExternalSettings,
-  writeMerged,
-  adoptMerged,
-  savedMatchesLocal,
+  createSaver,
 } from '../lib/panel-logic.js';
 
 const $ = (id) => document.getElementById(id);
@@ -67,47 +65,22 @@ const sticky = createStickyNotices((text, count) => {
 const setSticky = (key, text) => sticky.set(key, text);
 
 // ---------- settings ----------
-let saveChain = Promise.resolve();
-const echoes = []; // our own saved values, to recognise late storage echoes
-let saveFailed = false; // a save failed and local values may not be in storage: do not adopt over them
-let pendingSaves = 0; // our own in-flight saves: their storage events are echoes, not other windows
-function update(patch) {
-  settings = normalize({ ...settings, ...patch });
-  render();
-  pendingSaves += 1;
-  // Write only the keys this update changed, merged over what is stored now, so a
-  // background change to allSites (revocation) is never overwritten with a stale value.
-  // The echo is recorded inside writeMerged from the value actually written.
-  const attempt = saveChain.then(async () => {
-    const { value } = await writeMerged(patch, echoes);
-    // The merge may differ from local state (another context's change): adopt it
-    // unless a newer local edit is queued behind this one.
-    if (savedMatchesLocal(value, settings)) saveFailed = false;
-    const adopted = adoptMerged(settings, value, pendingSaves - 1, patch, saveFailed);
-    if (adopted) {
-      settings = adopted;
-      render();
-      applyToActiveTab();
-    }
-    return value;
-  });
-  saveChain = attempt
-    .then(() => setSticky('save', ''))
-    .catch(() => {
-      saveFailed = true;
-      setSticky('save', MSG_SAVE);
-    })
-    .finally(() => {
-      pendingSaves -= 1;
-    });
-  applyToActiveTab();
-  return attempt; // rejects if this save failed (the sticky notice is shown either way)
-}
+const saver = createSaver({
+  getSettings: () => settings,
+  setSettings: (s) => {
+    settings = s;
+  },
+  render: () => render(),
+  apply: () => applyToActiveTab(),
+  setSticky,
+  msgSave: MSG_SAVE,
+});
+const update = (patch) => saver.update(patch);
 
 // Another window's panel (or the service worker) changed the settings.
 function onStorageChanged(changes, area) {
   if (area !== 'local' || !changes[STORAGE_KEY]) return;
-  const next = adoptExternalSettings(settings, changes[STORAGE_KEY].newValue, pendingSaves, echoes);
+  const next = adoptExternalSettings(settings, changes[STORAGE_KEY].newValue, saver.pending, saver.echoes);
   if (!next) return;
   settings = next;
   render();
@@ -329,7 +302,13 @@ async function init() {
     try {
       fresh = await reconcileFresh(loadSettings);
     } catch {
-      // The storage event from the service worker still refreshes us.
+      // Fall back to the live permission check so the checkbox is still corrected.
+      try {
+        const granted = await hasAllSitesPermission();
+        if (!granted) fresh = { settings: { allSites: true }, ok: false }; // access is gone: clear the setting
+      } catch {
+        // The storage event from the service worker still refreshes us.
+      }
     }
     if (fresh) {
       // Correct the UI first so a failing write cannot skip it.
