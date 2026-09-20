@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULTS, defaultSettings, normalize, migrate, SCHEMA_VERSION } from '../extension/lib/settings.js';
+import { DEFAULTS, defaultSettings, normalize, migrate, SCHEMA_VERSION, setAllSitesOff } from '../extension/lib/settings.js';
 
 test('defaults match the spec schema', () => {
   assert.deepEqual(defaultSettings(), {
@@ -78,4 +78,18 @@ test('migrate returns defaults instead of throwing when a migration step is miss
   const full = { ...steps, 1: (d) => ({ ...d, v: 2 }) };
   assert.equal(migrate({ v: 0, textScale: 150 }, full, 2).textScale, 150);
   assert.doesNotThrow(() => migrate({ v: 1.5 }));
+});
+
+test('setAllSitesOff skips the write when allSites is already false', async () => {
+  let sets = 0;
+  globalThis.chrome = {
+    storage: { local: { get: async () => ({ settings: { v: 1, allSites: false } }), set: async () => { sets += 1; } } },
+  };
+  try {
+    const r = await setAllSitesOff();
+    assert.equal(r.allSites, false);
+    assert.equal(sets, 0);
+  } finally {
+    delete globalThis.chrome;
+  }
 });

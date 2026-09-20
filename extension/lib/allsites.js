@@ -16,27 +16,23 @@ export async function unregisterApplyScript() {
   if (await isRegistered()) await chrome.scripting.unregisterContentScripts({ ids: [SCRIPT_ID] });
 }
 
-// Idempotent: the service worker and the panel can race to register. A duplicate-id
-// rejection from the loser is success as long as the script is now registered.
+// Idempotent: the service worker and the panel can race to register. Never
+// unregister first (that would destroy a registration another context just made):
+// register, and if the id already exists update it in place.
 export async function registerApplyScript() {
+  const script = {
+    id: SCRIPT_ID,
+    matches: ['<all_urls>'],
+    js: ['content/apply.js'],
+    runAt: 'document_start',
+    allFrames: true,
+    persistAcrossSessions: true,
+  };
   try {
-    await unregisterApplyScript();
-  } catch (err) {
-    if (await isRegistered().catch(() => true)) throw err;
-  }
-  try {
-    await chrome.scripting.registerContentScripts([
-      {
-        id: SCRIPT_ID,
-        matches: ['<all_urls>'],
-        js: ['content/apply.js'],
-        runAt: 'document_start',
-        allFrames: true,
-        persistAcrossSessions: true,
-      },
-    ]);
+    await chrome.scripting.registerContentScripts([script]);
   } catch (err) {
     if (!(await isRegistered().catch(() => false))) throw err;
+    await chrome.scripting.updateContentScripts([script]);
   }
 }
 
@@ -70,5 +66,7 @@ export async function reconcileFresh(load) {
     settings = latest;
     ok = await ensureConsistent(settings.allSites);
   }
+  // Another context may have unregistered in the meantime: do not report ok blindly.
+  if (ok && !(await isRegistered())) ok = false;
   return { settings, ok };
 }

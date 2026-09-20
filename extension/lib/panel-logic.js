@@ -2,7 +2,7 @@
 // panel and the service worker import it.
 import { applyCssInPage } from './inject.js';
 import { isProtectedUrl } from './pages.js';
-import { migrate } from './settings.js';
+import { migrate, normalize, loadSettings, saveSettings } from './settings.js';
 import { registerApplyScript, disableAllSites, hasAllSitesPermission, ensureConsistent } from './allsites.js';
 
 // Wording is Chrome's, not a stable API: if it changes we fall back to "not allowed yet".
@@ -104,6 +104,7 @@ export function describeOff({ failedTabs, stillGranted }) {
  */
 export async function turnAllSitesOn(request, getCss, { persist = async () => {} } = {}) {
   if (!(await request)) return { ok: false };
+  let swept;
   try {
     // Save the setting BEFORE registering: the grant already woke the service
     // worker (permissions.onAdded), and its reconcile must never read
@@ -111,7 +112,10 @@ export async function turnAllSitesOn(request, getCss, { persist = async () => {}
     await persist(true);
     await registerApplyScript();
     // Belt and braces: a reconcile that read the old value may still be running.
-    await ensureConsistent(true);
+    if (!(await ensureConsistent(true))) throw new Error('all-sites access is not in place');
+    // Inside the guarded region: a throw here must roll back too, not leave the
+    // permission granted while reporting "was not turned on".
+    swept = await sweepTabs(getCss());
   } catch {
     // Do not leave <all_urls> granted with the feature reported as off.
     try {
@@ -132,7 +136,6 @@ export async function turnAllSitesOn(request, getCss, { persist = async () => {}
     }
     return { ok: false, failed: true, stillGranted };
   }
-  const swept = await sweepTabs(getCss());
   return { ok: true, failedTabs: swept.failed + (swept.unknown ? 1 : 0) };
 }
 
@@ -177,4 +180,32 @@ export function consumeEcho(echoes, rawNewValue) {
   if (i < 0) return false;
   echoes.splice(0, i + 1);
   return true;
+}
+
+/**
+ * One save: load -> merge patch -> write. The echo is recorded from the value
+ * actually written (a merge over stored settings, so it can differ from local
+ * state), and only when a write happens. Returns { value, written }.
+ */
+export async function writeMerged(patch, echoes, { load = loadSettings, save = saveSettings } = {}) {
+  const stored = await load();
+  const next = normalize({ ...stored, ...patch });
+  // Storage has no transactions: skip a write that would change nothing.
+  if (JSON.stringify(next) === JSON.stringify(stored)) return { value: stored, written: false };
+  const key = ser(next);
+  echoes.push(key);
+  try {
+    await save(next);
+  } catch (err) {
+    const i = echoes.lastIndexOf(key);
+    if (i >= 0) echoes.splice(i, 1); // nothing was written: no echo will come
+    throw err;
+  }
+  return { value: next, written: true };
+}
+
+/** After a save: adopt the merged value if it differs from local state and no newer save is queued. */
+export function adoptMerged(current, merged, queuedAfter) {
+  if (queuedAfter > 0) return null;
+  return JSON.stringify(normalize(merged)) === JSON.stringify(current) ? null : normalize(merged);
 }

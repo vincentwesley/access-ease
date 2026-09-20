@@ -31,6 +31,9 @@ function installChrome({ granted = false, registered = false, removeWorks = true
         assert.deepEqual(list[0].js, ['content/apply.js']);
         st.registered = true;
       },
+      updateContentScripts: async () => {
+        st.updates = (st.updates || 0) + 1;
+      },
       unregisterContentScripts: async () => {
         st.unregisters += 1;
         st.registered = false;
@@ -76,11 +79,32 @@ test('setting off, nothing granted, nothing registered: no-op', async () => {
   assert.equal(st.unregisters, 0);
 });
 
-test('registerApplyScript replaces an existing registration instead of failing on a duplicate id', async () => {
+test('registerApplyScript never unregisters first; a duplicate id is updated in place', async () => {
   const st = installChrome({ granted: true, registered: true });
+  globalThis.chrome.scripting.registerContentScripts = async () => {
+    st.registers += 1;
+    throw new Error("Duplicate script ID 'accessease-apply'");
+  };
   await registerApplyScript();
-  assert.equal(st.unregisters, 1);
-  assert.equal(st.registers, 1);
+  assert.equal(st.unregisters, 0);
+  assert.equal(st.registered, true);
+  assert.equal(st.updates, 1);
+});
+
+test('reconcileFresh: does not report ok if the script vanished after reconciling', async () => {
+  const st = installChrome({ granted: true, registered: true });
+  const load = async () => {
+    return { allSites: true };
+  };
+  const orig = globalThis.chrome.scripting.getRegisteredContentScripts;
+  let calls = 0;
+  globalThis.chrome.scripting.getRegisteredContentScripts = async (a) => {
+    calls += 1;
+    if (calls >= 2) st.registered = false; // another context unregisters after the first check
+    return orig(a);
+  };
+  const { ok } = await reconcileFresh(load);
+  assert.equal(ok, false);
 });
 
 test('disableAllSites unregisters then removes the permission', async () => {

@@ -1,4 +1,4 @@
-import { loadSettings, saveSettings, setAllSitesOff, normalize, defaultSettings, LIMITS, STORAGE_KEY } from '../lib/settings.js';
+import { loadSettings, setAllSitesOff, normalize, defaultSettings, LIMITS, STORAGE_KEY } from '../lib/settings.js';
 import { buildCss, fontUrls } from '../lib/css.js';
 import { applyCssInPage } from '../lib/inject.js';
 import { isProtectedUrl } from '../lib/pages.js';
@@ -11,7 +11,8 @@ import {
   describeOn,
   describeOff,
   adoptExternalSettings,
-  noteOwnSave,
+  writeMerged,
+  adoptMerged,
 } from '../lib/panel-logic.js';
 
 const $ = (id) => document.getElementById(id);
@@ -71,18 +72,21 @@ let pendingSaves = 0; // our own in-flight saves: their storage events are echoe
 function update(patch) {
   settings = normalize({ ...settings, ...patch });
   render();
-  const snapshot = settings;
   pendingSaves += 1;
-  noteOwnSave(echoes, snapshot);
   // Write only the keys this update changed, merged over what is stored now, so a
   // background change to allSites (revocation) is never overwritten with a stale value.
+  // The echo is recorded inside writeMerged from the value actually written.
   const attempt = saveChain.then(async () => {
-    const stored = await loadSettings();
-    const next = normalize({ ...stored, ...patch });
-    // Storage has no transactions: skip a write that would change nothing, so a
-    // no-op update (e.g. Reset on defaults) can never race with another context's write.
-    if (JSON.stringify(next) === JSON.stringify(stored)) return stored;
-    return saveSettings(next);
+    const { value } = await writeMerged(patch, echoes);
+    // The merge may differ from local state (another context's change): adopt it
+    // unless a newer local edit is queued behind this one.
+    const adopted = adoptMerged(settings, value, pendingSaves - 1);
+    if (adopted) {
+      settings = adopted;
+      render();
+      applyToActiveTab();
+    }
+    return value;
   });
   saveChain = attempt
     .then(() => setSticky('save', ''))
@@ -265,7 +269,13 @@ function onAllSitesChange(e) {
     return;
   }
   (async () => {
-    update({ allSites: false });
+    try {
+      await update({ allSites: false });
+    } catch {
+      // update() already shows MSG_SAVE. Carry on: the permission is still dropped, and
+      // a stale allSites=true in storage is healed by the next reconcile (init / onRemoved).
+      setSticky('save', MSG_SAVE);
+    }
     const result = await turnAllSitesOff();
     const msg = describeOff(result);
     setSticky('perm', msg.sticky);
@@ -310,7 +320,7 @@ async function init() {
     try {
       const fresh = await reconcileFresh(loadSettings);
       if (fresh.settings.allSites && !fresh.ok) {
-        noteOwnSave(echoes, await setAllSitesOff());
+        await writeMerged({ allSites: false }, echoes); // echo only if a write really happens
       }
       const allSites = fresh.settings.allSites && fresh.ok;
       if (allSites !== settings.allSites) {

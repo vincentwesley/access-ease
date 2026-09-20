@@ -10,6 +10,8 @@ import {
   adoptExternalSettings,
   noteOwnSave,
   consumeEcho,
+  writeMerged,
+  adoptMerged,
   isProtectedError,
 } from '../extension/lib/panel-logic.js';
 import { defaultSettings, normalize } from '../extension/lib/settings.js';
@@ -123,7 +125,7 @@ test('turning all-sites OFF when Chrome keeps the permission says so (never clai
 });
 
 test('REGRESSION C3: turning all-sites ON registers the script, then styles already-open tabs right away', async () => {
-  const st = installChrome({ granted: false, tabs: [{ id: 1 }, { id: 2 }, { id: 3 }] });
+  const st = installChrome({ granted: true, tabs: [{ id: 1 }, { id: 2 }, { id: 3 }] });
   let cssCalls = 0;
   const r = await turnAllSitesOn(Promise.resolve(true), () => (cssCalls++, 'THE-CSS'));
   assert.equal(r.ok, true);
@@ -222,4 +224,61 @@ test('adoptExternalSettings: a background allSites change is adopted even while 
   const next = adoptExternalSettings(current, theirs, 1, []);
   assert.equal(next.allSites, false);
   assert.equal(next.textScale, 120, 'only allSites is taken while saves are pending');
+});
+
+test('turnAllSitesOn: ensureConsistent returning false rolls back', async () => {
+  // permission reads as not held right after the grant: ensureConsistent(true) -> false
+  installChrome({ granted: false, registered: false });
+  const persisted = [];
+  const r = await turnAllSitesOn(Promise.resolve(true), () => 'css', { persist: async (on) => { persisted.push(on); } });
+  assert.equal(r.ok, false);
+  assert.equal(r.failed, true);
+  assert.deepEqual(persisted, [true, false]);
+});
+
+test('turnAllSitesOn: a throw from getCss after success rolls back instead of leaving the grant', async () => {
+  const st = installChrome({ granted: true, registered: false, tabs: [{ id: 1 }] });
+  const persisted = [];
+  const r = await turnAllSitesOn(
+    Promise.resolve(true),
+    () => {
+      throw new Error('css boom');
+    },
+    { persist: async (on) => { persisted.push(on); } },
+  );
+  assert.equal(r.failed, true);
+  assert.deepEqual(persisted, [true, false]);
+  assert.equal(st.granted, false);
+});
+
+test('writeMerged: echo is the merged value actually written, not the local state', async () => {
+  const echoes = [];
+  const stored = normalize({ textScale: 150, allSites: false });
+  let saved = null;
+  const r = await writeMerged({ contrast: 'dark' }, echoes, { load: async () => stored, save: async (v) => (saved = v) });
+  assert.equal(r.written, true);
+  assert.equal(saved.textScale, 150);
+  assert.equal(consumeEcho(echoes, saved), true);
+  assert.equal(echoes.length, 0);
+});
+
+test('writeMerged: skip-if-equal leaves no phantom echo; a failed save removes its echo', async () => {
+  const echoes = [];
+  const stored = defaultSettings();
+  const r = await writeMerged({ textScale: 100 }, echoes, { load: async () => stored, save: async () => assert.fail('no write') });
+  assert.equal(r.written, false);
+  assert.equal(echoes.length, 0);
+  await assert.rejects(
+    writeMerged({ textScale: 120 }, echoes, { load: async () => stored, save: async () => { throw new Error('x'); } }),
+    /x/,
+  );
+  assert.equal(echoes.length, 0);
+});
+
+test('adoptMerged: adopts a differing merge only when no newer save is queued', () => {
+  const local = normalize({ textScale: 100 });
+  const merged = normalize({ textScale: 100, allSites: true });
+  assert.deepEqual(adoptMerged(local, merged, 0), merged);
+  assert.equal(adoptMerged(local, merged, 1), null);
+  assert.equal(adoptMerged(local, local, 0), null);
 });

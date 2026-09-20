@@ -81,5 +81,7 @@ export async function saveSettings(settings) {
 
 /** Load -> merge -> save at write time, so a concurrent edit to other keys is never reverted. */
 export async function setAllSitesOff() {
-  return saveSettings({ ...(await loadSettings()), allSites: false });
+  const current = await loadSettings();
+  if (!current.allSites) return current; // nothing to change: no write, no echo
+  return saveSettings({ ...current, allSites: false });
 }
