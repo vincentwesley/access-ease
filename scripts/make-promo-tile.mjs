@@ -30,7 +30,7 @@ p{font-size:19px;line-height:1.35;color:#fff}
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 440, height: 280 }, deviceScaleFactor: 1 });
 await page.setContent(html);
-await page.evaluate(() => document.fonts.ready);
+await page.waitForFunction(() => globalThis.document.fonts.status === "loaded");
 await page.screenshot({ path: join(outDir, 'promo-tile-440x280.png') });
 await browser.close();
 console.log('wrote docs/store/promo-tile-440x280.png');

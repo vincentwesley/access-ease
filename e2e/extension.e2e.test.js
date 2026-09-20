@@ -1049,7 +1049,12 @@ describe('store screenshots (1280x800)', () => {
     await panel.emulateMedia({ colorScheme: 'dark' });
     await setAll({ contrast: 'light', scale: 3, dyslexia: true });
     await panel.check('#motion');
-    await panel.waitForTimeout(500);
+    // Wait for a stable state instead of sleeping: settings applied to the page, fonts loaded,
+    // no transient notice, and no focus ring left on the last-toggled control.
+    await until(async () => /OpenDyslexic/.test(await cs(page, '#intro', 'fontFamily')));
+    await page.evaluate(() => document.fonts.ready);
+    await panel.evaluate(() => document.activeElement?.blur());
+    await noNotice();
     await compose('4-panel-dark-mode.png', {
       title: 'The panel follows your system theme',
       sub: 'Full keyboard and screen reader support, in light and dark.',
