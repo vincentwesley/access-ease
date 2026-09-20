@@ -112,7 +112,7 @@ No. The extension does not load or execute remote code. All scripts and fonts ar
 |---|---|---|---|
 | Store icon | 128x128 | Yes | Ready: `extension/icons/icon128.png` |
 | Screenshots | 1280x800 (or 640x400), 1 to 5 | At least 1 | Ready, see below |
-| Small promo tile | 440x280 | Yes | Must be made (not generated) |
+| Small promo tile | 440x280 | Yes | Ready: `docs/store/promo-tile-440x280.png` |
 | Marquee promo tile | 1400x560 | No | Optional |
 
 ### Screenshots (1280x800)
@@ -126,7 +126,7 @@ Upload in this order, from `docs/screenshots/`:
 
 ### Promo tile notes
 
-The 440x280 small promo tile is required for the listing and has to be created. Suggested design: the AccessEase "Aa" icon (white on #1a56c4) beside the name "AccessEase" and the line "Easier reading on any page". Keep text large and high contrast, no screenshots, no claims of awards or ratings. Save as `docs/store/promo-440x280.png`.
+The 440x280 small promo tile is ready at `docs/store/promo-tile-440x280.png`. It shows the "Aa" mark, the name "AccessEase", the line "Make any web page easier to read." and four feature chips, in high contrast, with no screenshots or claims. Regenerate it with `node scripts/make-promo-tile.mjs` (uses Playwright and the bundled OpenDyslexic font).
 
 ## Submission checklist
 
@@ -136,7 +136,7 @@ The 440x280 small promo tile is required for the listing and has to be created. 
 - [ ] Zip contains only the extension files (manifest.json at the root).
 - [ ] Name, summary, description, category and language pasted from this file.
 - [ ] Store icon and 1 to 5 screenshots at 1280x800 uploaded.
-- [ ] 440x280 small promo tile made and uploaded.
+- [ ] 440x280 small promo tile (`docs/store/promo-tile-440x280.png`) uploaded.
 - [ ] Single purpose statement and every permission justification pasted, including the optional host permission.
 - [ ] Remote code answered "No"; no data types ticked; three certifications ticked.
 - [ ] Support URL and privacy policy URL set, and the privacy policy link opens (repository is public and PRIVACY.md is on the main branch).
