@@ -5,6 +5,11 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "author": "Vincent Wesley",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vincentwesley/access-ease.git"
+  },
   "engines": {
     "node": ">=20"
   },

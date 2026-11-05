@@ -98,3 +98,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [SPEC.md](SPEC.md) and [DECISIONS.md](DE
 - AccessEase is an original work, not a fork of any other project.
 
 The code is released under the [MIT License](LICENSE).
+
+Provided as is, without warranty of any kind.
