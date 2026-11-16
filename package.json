@@ -14,10 +14,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test tests/",
+    "test": "node --test \"tests/**/*.test.js\"",
     "lint": "eslint .",
     "build": "node scripts/build.mjs",
-    "test:e2e": "node --test --test-concurrency=1 e2e/"
+    "test:e2e": "node --test --test-concurrency=1 \"e2e/**/*.test.js\""
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
