@@ -96,6 +96,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [SPEC.md](SPEC.md) and [DECISIONS.md](DE
 
 - Bundled font: [OpenDyslexic](https://github.com/antijingoist/opendyslexic), licensed under the SIL Open Font License 1.1 (see `extension/fonts/OFL.txt`). It is redistributed unmodified. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - AccessEase is an original work, not a fork of any other project.
+- Designed and built by Vin, Vin's Atelier (https://vwesley.dev). Logo by @portus_workstation / @wason25_pz (Instagram); the logo is all rights reserved (see NOTICE.md), not covered by the MIT licence.
 
 The code is released under the [MIT License](LICENSE).
 

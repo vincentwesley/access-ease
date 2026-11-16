@@ -1,6 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AccessEase",
+  "author": "Vin, Vin's Atelier",
   "version": "1.0.0",
   "description": "Make any web page easier to read: bigger text, high contrast, a dyslexia-friendly font and calmer motion.",
   "minimum_chrome_version": "114",
